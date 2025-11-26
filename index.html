@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ciber-Café de Producción Musical - Panel de Gestión</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Estilos personalizados para un ambiente de estudio oscuro */
+        :root {
+            --primary: #1e1e1e;
+            --secondary: #2a2a2a;
+            --accent: #9333ea; /* Púrpura */
+            --text-light: #f3f4f6;
+            --status-available: #22c55e;
+            --status-in-use: #f97316;
+            --status-reserved: #0ea5e9;
+            --status-maintenance: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--primary);
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+
+        .card {
+            background-color: var(--secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-available { background-color: var(--status-available); }
+        .status-in-use { background-color: var(--status-in-use); }
+        .status-reserved { background-color: var(--status-reserved); }
+        .status-maintenance { background-color: var(--status-maintenance); }
+        
+        /* Estilo para los botones de acción */
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary { background-color: var(--accent); color: white; }
+        .btn-primary:hover { background-color: #7e22ce; }
+        .btn-danger { background-color: var(--status-maintenance); color: white; }
+        .btn-danger:hover { background-color: #c02929; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        .btn-secondary:hover { background-color: #374151; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- Modal de Alerta/Confirmación Personalizado -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center">
+        <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-sm transform transition-all scale-100 duration-300">
+            <h3 id="modal-title" class="text-xl font-bold mb-4 text-white">Título</h3>
+            <p id="modal-message" class="text-gray-300 mb-6">Mensaje</p>
+            <div id="modal-actions" class="flex justify-end space-x-3">
+                <!-- Botones se inyectarán aquí -->
+            </div>
+        </div>
+    </div>
+
+    <header class="mb-8 border-b border-gray-700 pb-4">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-white flex items-center">
+            <i class="fas fa-headphones-alt text-purple-400 mr-3"></i>
+            Panel de Gestión - Cyber-Studio
+        </h1>
+        <p class="text-gray-400 mt-1">Simulador de tiempo y estado para estaciones de producción musical.</p>
+        <div id="auth-status" class="text-xs mt-2 text-gray-500">
+            <!-- El estado de autenticación se inyectará aquí -->
+        </div>
+    </header>
+
+    <div id="stations-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Las tarjetas de estación se inyectarán aquí -->
+    </div>
+
+    <!-- Scripts de Firebase y Lógica de la Aplicación -->
+    <script type="module">
+        // Importaciones de Firebase (requeridas para el entorno Canvas)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, collection, setDoc, query, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Configuración y variables globales
+        setLogLevel('Debug');
+        let app = null;
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Estado del emulador
+        let stations = [];
+        const RATE_PER_HOUR = 8.50; // Tasa por hora en la moneda local (ej. USD/EUR)
+        let simulationInterval = null;
+        const COLLECTION_NAME = 'music_stations';
+
+        // --- Funciones de Utilidad y UI ---
+
+        /**
+         * Muestra un modal personalizado en lugar de alert/confirm.
+         * @param {string} title Título del modal.
+         * @param {string} message Mensaje del modal.
+         * @param {Array<{text: string, style: string, action: function}>} actions Array de objetos de acción.
+         */
+        function showCustomModal(title, message, actions) {
+            const modal = document.getElementById('custom-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalMessage = document.getElementById('modal-message');
+            const modalActions = document.getElementById('modal-actions');
+
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalActions.innerHTML = '';
+            
+            actions.forEach(action => {
+                const button = document.createElement('button');
+                button.textContent = action.text;
+                button.className = `btn ${action.style}`;
+                button.onclick = () => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    action.action();
+                };
+                modalActions.appendChild(button);
+            });
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        /**
+         * Formatea segundos a HH:MM:SS.
+         * @param {number} totalSeconds El tiempo total en segundos.
+         * @returns {string} El tiempo formateado.
+         */
+        function formatTime(totalSeconds) {
+            const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const s = String(totalSeconds % 60).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        /**
+         * Calcula el costo total basado en el tiempo transcurrido.
+         * @param {number} totalSeconds Tiempo total en segundos.
+         * @returns {string} Costo total formateado.
+         */
+        function calculateCost(totalSeconds) {
+            const cost = (totalSeconds / 3600) * RATE_PER_HOUR;
+            return cost.toFixed(2);
+        }
+
+        /**
+         * Determina el color y la etiqueta de estado para la interfaz.
+         * @param {string} status Estado de la estación.
+         * @returns {{class: string, text: string}} Objeto con clase CSS y texto.
+         */
+        function getStatusInfo(status) {
+            switch (status) {
+                case 'Available':
+                    return { class: 'status-available bg-status-available', text: 'Disponible' };
+                case 'In Use':
+                    return { class: 'status-in-use bg-status-in-use', text: 'En Uso' };
+                case 'Reserved':
+                    return { class: 'status-reserved bg-status-reserved', text: 'Reservada' };
+                case 'Maintenance':
+                    return { class: 'status-maintenance bg-status-maintenance', text: 'Mantenimiento' };
+                default:
+                    return { class: 'bg-gray-500', text: 'Desconocido' };
+            }
+        }
+
+        /**
+         * Dibuja todas las tarjetas de estación en el DOM.
+         */
+        function renderStations() {
+            const grid = document.getElementById('stations-grid');
+            grid.innerHTML = stations.map(station => {
+                const statusInfo = getStatusInfo(station.status);
+                const isAvailable = station.status === 'Available';
+                const isInUse = station.status === 'In Use';
+
+                let sessionDetails = '';
+                let actionsHtml = '';
+
+                if (isInUse) {
+                    sessionDetails = `
+                        <p class="text-sm text-gray-400 truncate">
+                            <i class="fas fa-user mr-1"></i> Cliente: <span class="text-white font-medium">${station.sessionUser}</span>
+                        </p>
+                        <p class="text-sm text-gray-400 mt-1">
+                            <i class="fas fa-clock mr-1"></i> Tiempo: <span id="time-${station.id}" class="text-white font-mono">${formatTime(station.timeElapsed)}</span>
+                        </p>
+                        <p class="text-xl font-bold mt-2 text-purple-400">
+                            $<span id="cost-${station.id}">${calculateCost(station.timeElapsed)}</span>
+                        </p>
+                    `;
+                    actionsHtml = `
+                        <button onclick="endSession(${station.id})" class="btn btn-danger w-full mt-3">
+                            <i class="fas fa-stopwatch mr-2"></i> Finalizar Sesión
+                        </button>
+                    `;
+                } else if (isAvailable) {
+                    actionsHtml = `
+                        <button onclick="startSessionPrompt(${station.id})" class="btn btn-primary w-full mt-3">
+                            <i class="fas fa-play mr-2"></i> Iniciar Sesión
+                        </button>
+                        <button onclick="toggleStatus(${station.id}, 'Reserved')" class="btn btn-secondary w-full mt-2">
+                            <i class="fas fa-calendar-check mr-2"></i> Reservar
+                        </button>
+                    `;
+                } else if (station.status === 'Reserved') {
+                    actionsHtml = `
+                        <button onclick="startSessionPrompt(${station.id})" class="btn btn-primary w-full mt-3">
+                            <i class="fas fa-play mr-2"></i> Iniciar Sesión (Reservado)
+                        </button>
+                        <button onclick="toggleStatus(${station.id}, 'Available')" class="btn btn-secondary w-full mt-2">
+                            <i class="fas fa-undo mr-2"></i> Cancelar Reserva
+                        </button>
+                    `;
+                } else if (station.status === 'Maintenance') {
+                    actionsHtml = `
+                        <button onclick="toggleStatus(${station.id}, 'Available')" class="btn btn-secondary w-full mt-3">
+                            <i class="fas fa-wrench mr-2"></i> Finalizar Mantenimiento
+                        </button>
+                    `;
+                }
+
+                const maintenanceButton = isAvailable || station.status === 'Reserved' ? `
+                    <button onclick="toggleStatus(${station.id}, 'Maintenance')" class="text-gray-500 hover:text-red-500 transition-colors absolute top-4 right-4 text-lg" title="Poner en Mantenimiento">
+                        <i class="fas fa-tools"></i>
+                    </button>
+                ` : '';
+
+                return `
+                    <div id="station-${station.id}" class="card p-5 rounded-xl shadow-lg relative">
+                        ${maintenanceButton}
+                        <h2 class="text-2xl font-bold mb-2 text-white flex items-center">
+                            <i class="fas fa-desktop text-purple-400 mr-2"></i> Estación ${station.id}
+                        </h2>
+                        <div class="flex items-center space-x-2 mb-4">
+                            <span class="${statusInfo.class} status-dot"></span>
+                            <span class="text-sm font-semibold text-gray-300">${statusInfo.text}</span>
+                        </div>
+                        
+                        <p class="text-sm text-gray-500 border-t border-gray-700 pt-3">Software:</p>
+                        <p class="text-md font-medium text-purple-300 mb-3">${station.softwareSuite}</p>
+                        
+                        ${sessionDetails}
+
+                        <div class="pt-4 border-t border-gray-700 mt-4">
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- Lógica del Emulador (Simulación) ---
+
+        /**
+         * Función principal de la simulación de tiempo.
+         * Se ejecuta cada segundo.
+         */
+        function simulationTick() {
+            let needsRerender = false;
+            
+            stations.forEach(station => {
+                if (station.status === 'In Use') {
+                    station.timeElapsed++;
+                    needsRerender = true; // For a full re-render, but we optimize below.
+                    
+                    // Actualización optimizada del tiempo y el costo en el DOM
+                    const timeEl = document.getElementById(`time-${station.id}`);
+                    const costEl = document.getElementById(`cost-${station.id}`);
+
+                    if (timeEl && costEl) {
+                        timeEl.textContent = formatTime(station.timeElapsed);
+                        costEl.textContent = calculateCost(station.timeElapsed);
+                    }
+                }
+            });
+
+            // Si es necesario persistir el estado de la estación en Firestore, 
+            // se haría aquí (pero se omite por rendimiento en el tick de 1 segundo).
+        }
+
+        /**
+         * Detiene la simulación global (útil al cerrar o resetear).
+         */
+        function stopSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+            }
+        }
+
+        /**
+         * Inicia la simulación global.
+         */
+        function startSimulation() {
+            if (!simulationInterval) {
+                simulationInterval = setInterval(simulationTick, 1000); // 1 segundo
+            }
+        }
+
+        // --- Funciones de Gestión de Estaciones ---
+
+        /**
+         * Muestra el prompt para iniciar una sesión.
+         * @param {number} stationId ID de la estación.
+         */
+        function startSessionPrompt(stationId) {
+            showCustomModal(
+                `Iniciar Sesión en Estación ${stationId}`,
+                `Por favor, introduce el nombre del cliente para la Estación ${stationId}:`,
+                [
+                    { text: 'Cancelar', style: 'btn-secondary', action: () => {} },
+                    { text: 'Aceptar', style: 'btn-primary', action: () => {
+                        // En un entorno real se usaría un campo de entrada, aquí simulamos el prompt.
+                        const userName = prompt("Nombre del Cliente:"); 
+                        if (userName && userName.trim()) {
+                            startSession(stationId, userName.trim());
+                        } else {
+                            showCustomModal('Error', 'El nombre del cliente no puede estar vacío.', [{ text: 'Cerrar', style: 'btn-secondary', action: () => {} }]);
+                        }
+                    }}
+                ]
+            );
+        }
+
+        /**
+         * Inicia una nueva sesión en la estación.
+         * @param {number} stationId ID de la estación.
+         * @param {string} userName Nombre del cliente.
+         */
+        async function startSession(stationId, userName) {
+            const station = stations.find(s => s.id === stationId);
+            if (!station || station.status === 'In Use' || station.status === 'Maintenance') return;
+
+            // Reiniciar y establecer nuevos valores
+            station.status = 'In Use';
+            station.sessionUser = userName;
+            station.timeStart = Date.now();
+            station.timeElapsed = 0;
+
+            await updateStationInFirestore(station);
+            renderStations();
+        }
+
+        /**
+         * Finaliza la sesión y muestra el resumen.
+         * @param {number} stationId ID de la estación.
+         */
+        function endSession(stationId) {
+            const station = stations.find(s => s.id === stationId);
+            if (!station || station.status !== 'In Use') return;
+
+            const finalCost = calculateCost(station.timeElapsed);
+            const totalTime = formatTime(station.timeElapsed);
+
+            showCustomModal(
+                `Factura Final - Estación ${stationId}`,
+                `Cliente: ${station.sessionUser}\nTiempo Total: ${totalTime}\nCosto Total: $${finalCost}`,
+                [
+                    { text: 'Aceptar y Finalizar', style: 'btn-primary', action: () => {
+                        resetStation(stationId);
+                    }}
+                ]
+            );
+        }
+
+        /**
+         * Resetea una estación a su estado inicial de "Available".
+         * @param {number} stationId ID de la estación.
+         */
+        async function resetStation(stationId) {
+            const station = stations.find(s => s.id === stationId);
+            if (!station) return;
+
+            station.status = 'Available';
+            station.sessionUser = null;
+            station.timeStart = null;
+            station.timeElapsed = 0;
+
+            await updateStationInFirestore(station);
+            renderStations();
+        }
+
+        /**
+         * Cambia el estado de una estación (Reserva/Mantenimiento).
+         * @param {number} stationId ID de la estación.
+         * @param {string} newStatus Nuevo estado ('Reserved' o 'Maintenance' o 'Available').
+         */
+        async function toggleStatus(stationId, newStatus) {
+            const station = stations.find(s => s.id === stationId);
+            if (!station || station.status === 'In Use') return;
+
+            // Si pasa a Mantenimiento o Reserva, asegurar que no haya tiempo acumulado visible.
+            if (newStatus !== 'In Use') {
+                station.timeElapsed = 0; 
+                station.sessionUser = null;
+            }
+
+            station.status = newStatus;
+            
+            await updateStationInFirestore(station);
+            renderStations();
+        }
+        
+        // Exponer funciones globales para que sean accesibles desde el HTML
+        window.startSessionPrompt = startSessionPrompt;
+        window.endSession = endSession;
+        window.toggleStatus = toggleStatus;
+        
+        // --- Funciones de Inicialización y Firebase/Firestore ---
+
+        /**
+         * Inicializa la estructura de datos por defecto si no hay datos en Firestore.
+         */
+        function initializeDefaultStations() {
+            // Estaciones de producción musical con diferente software
+            return [
+                { id: 1, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Ableton Live Suite & Push 3' },
+                { id: 2, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Logic Pro X & Universal Audio' },
+                { id: 3, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'FL Studio Producer & Teclado MIDI' },
+                { id: 4, status: 'Reserved', sessionUser: 'Ana P.', timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Pro Tools Ultimate & Monitores ADAM' },
+                { id: 5, status: 'Maintenance', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Studio One & Sintetizador Analógico' },
+                { id: 6, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Cubase Pro & Interfaz Focusrite' },
+            ];
+        }
+
+        /**
+         * Guarda o actualiza una estación específica en Firestore.
+         * @param {object} station El objeto de la estación a guardar.
+         */
+        async function updateStationInFirestore(station) {
+            if (!db || !userId) return;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME, String(station.id));
+            try {
+                // Usar setDoc para crear o sobrescribir el documento
+                await setDoc(docRef, station, { merge: true });
+            } catch (error) {
+                console.error("Error al actualizar la estación en Firestore:", error);
+            }
+        }
+        
+        /**
+         * Suscribe a los cambios en la colección de estaciones en Firestore.
+         */
+        function subscribeToStations() {
+            if (!db || !userId) return;
+
+            // Ruta pública para datos compartidos
+            const stationsColRef = collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME);
+            const q = query(stationsColRef);
+
+            onSnapshot(q, (snapshot) => {
+                const fetchedStations = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Asegurar que timeElapsed es un número, especialmente si se carga desde Firestore
+                    data.timeElapsed = data.timeElapsed || 0; 
+                    fetchedStations.push(data);
+                });
+                
+                // Si la base de datos está vacía, inicializar con datos por defecto
+                if (fetchedStations.length === 0) {
+                    console.log("Firestore vacío. Inicializando estaciones por defecto...");
+                    const defaultStations = initializeDefaultStations();
+                    defaultStations.forEach(s => updateStationInFirestore(s));
+                    stations = defaultStations;
+                } else {
+                    // Ordenar por ID para una visualización consistente
+                    stations = fetchedStations.sort((a, b) => a.id - b.id);
+                }
+                
+                renderStations();
+                startSimulation(); // Asegurar que la simulación se ejecute después de cargar los datos
+            }, (error) => {
+                console.error("Error al obtener instantánea de estaciones:", error);
+                // Si falla la suscripción (ej. reglas de seguridad), usar estado local.
+                if (stations.length === 0) {
+                    stations = initializeDefaultStations();
+                    renderStations();
+                    startSimulation();
+                }
+            });
+        }
+
+        /**
+         * Inicializa la aplicación Firebase y el estado.
+         */
+        function initializeAppAndAuth() {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config no está disponible. Ejecutando en modo local/simulación.");
+                document.getElementById('auth-status').textContent = "Modo de simulación local (Firebase no inicializado)";
+                stations = initializeDefaultStations();
+                renderStations();
+                startSimulation();
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('auth-status').innerHTML = `<i class="fas fa-lock text-green-500 mr-1"></i> Autenticado. ID de Usuario: <span class="text-white">${userId}</span> | App ID: <span class="text-white">${appId}</span>`;
+                        subscribeToStations();
+                    } else {
+                        // Intentar autenticación (si falla o si el token es nulo)
+                        if (initialAuthToken) {
+                            try {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } catch (e) {
+                                console.warn("Fallo al iniciar sesión con token personalizado. Intentando de forma anónima.", e);
+                                await signInAnonymously(auth);
+                            }
+                        } else {
+                            // Si no hay token inicial, iniciar sesión de forma anónima.
+                            await signInAnonymously(auth);
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error("Fallo la inicialización de Firebase:", error);
+                document.getElementById('auth-status').textContent = "ERROR: Fallo al inicializar Firebase. Comprobando la Consola.";
+            }
+        }
+
+        window.onload = initializeAppAndAuth;
+    </script>
+</body>
+</html>
