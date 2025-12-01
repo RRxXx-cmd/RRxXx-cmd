@@ -112,7 +112,7 @@
 
         // Estado del emulador
         let stations = [];
-        const RATE_PER_HOUR = 8.50; // Tasa por hora en la moneda local (ej. USD/EUR)
+        const RATE_PER_HOUR = 1800; // Tasa por hora en la moneda local (ej. USD/EUR)
         let simulationInterval = null;
         const COLLECTION_NAME = 'music_stations';
 
@@ -156,7 +156,7 @@
          * @returns {string} El tiempo formateado.
          */
         function formatTime(totalSeconds) {
-            const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const h = String(Math.floor(totalSeconds / 10)).padStart(2, '0');
             const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
             const s = String(totalSeconds % 60).padStart(2, '0');
             return `${h}:${m}:${s}`;
@@ -560,3 +560,4 @@
 </body>
 
 </html>
+
