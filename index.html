@@ -112,7 +112,8 @@
 
         // Estado del emulador
         let stations = [];
-        const RATE_PER_HOUR = 1800; // Tasa por hora en la moneda local (ej. USD/EUR)
+        const CURRENCY_SYMBOL = '$'; // Símbolo de la moneda local (e.g., $, €, MXN)
+        const RATE_PER_HOUR = 10.00; // Tasa por hora en la moneda local (ACTUALIZADO: 10.00)
         let simulationInterval = null;
         const COLLECTION_NAME = 'music_stations';
 
@@ -156,7 +157,7 @@
          * @returns {string} El tiempo formateado.
          */
         function formatTime(totalSeconds) {
-            const h = String(Math.floor(totalSeconds / 10)).padStart(2, '0');
+            const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
             const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
             const s = String(totalSeconds % 60).padStart(2, '0');
             return `${h}:${m}:${s}`;
@@ -168,7 +169,8 @@
          * @returns {string} Costo total formateado.
          */
         function calculateCost(totalSeconds) {
-            const cost = (totalSeconds / 10) * RATE_PER_HOUR;
+            // El costo se calcula proporcionalmente por segundo (RATE_PER_HOUR / 3600)
+            const cost = (totalSeconds / 3600) * RATE_PER_HOUR;
             return cost.toFixed(2);
         }
 
@@ -214,7 +216,7 @@
                             <i class="fas fa-clock mr-1"></i> Tiempo: <span id="time-${station.id}" class="text-white font-mono">${formatTime(station.timeElapsed)}</span>
                         </p>
                         <p class="text-xl font-bold mt-2 text-purple-400">
-                            $<span id="cost-${station.id}">${calculateCost(station.timeElapsed)}</span>
+                            ${CURRENCY_SYMBOL}<span id="cost-${station.id}">${calculateCost(station.timeElapsed)}</span>
                         </p>
                     `;
                     actionsHtml = `
@@ -383,7 +385,7 @@
 
             showCustomModal(
                 `Factura Final - Estación ${stationId}`,
-                `Cliente: ${station.sessionUser}\nTiempo Total: ${totalTime}\nCosto Total: $${finalCost}`,
+                `Cliente: ${station.sessionUser}\nTiempo Total: ${totalTime}\nCosto Total: ${CURRENCY_SYMBOL}${finalCost}`,
                 [
                     { text: 'Aceptar y Finalizar', style: 'btn-primary', action: () => {
                         resetStation(stationId);
@@ -558,6 +560,6 @@
         window.onload = initializeAppAndAuth;
     </script>
 </body>
-
 </html>
+
 
