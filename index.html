@@ -172,7 +172,7 @@
         function calculateCost(totalSeconds) {
             // El cobro es por segundo. La fórmula convierte la tarifa por hora (HOURLY_RATE) a tarifa por segundo 
             // dividiéndola por 3600 (segundos en una hora).
-            const cost = (60 / 3600) * HOURLY_RATE;
+            const cost = (3600 / 3600) * HOURLY_RATE;
             // Usar toFixed(2) para garantizar dos decimales
             return cost.toFixed(2);
         }
@@ -562,6 +562,7 @@
     </script>
 </body>
 </html>
+
 
 
 
