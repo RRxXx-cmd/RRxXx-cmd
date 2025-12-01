@@ -113,7 +113,8 @@
         // Estado del emulador
         let stations = [];
         const CURRENCY_SYMBOL = 'MXN$'; // Símbolo de la moneda (Pesos Mexicanos)
-        const RATE_PER_HOUR = 10.00; // Tasa por hora en la moneda local (10 MXN por hora)
+        const HOURLY_RATE = 10.00; // Tasa por hora en la moneda local (10 MXN por hora).
+        // NOTA: La tarifa por segundo real es HOURLY_RATE / 3600 (aprox. 0.002777 MXN/s)
         let simulationInterval = null;
         const COLLECTION_NAME = 'music_stations';
 
@@ -169,8 +170,9 @@
          * @returns {string} Costo total formateado con dos decimales.
          */
         function calculateCost(totalSeconds) {
-            // Costo total exacto: (MXN por hora / 3600 segundos) * tiempo transcurrido
-            const cost = (totalSeconds / 1) * RATE_PER_HOUR;
+            // El cobro es por segundo. La fórmula convierte la tarifa por hora (HOURLY_RATE) a tarifa por segundo 
+            // dividiéndola por 3600 (segundos en una hora).
+            const cost = (totalSeconds / 3600) * HOURLY_RATE;
             // Usar toFixed(2) para garantizar dos decimales
             return cost.toFixed(2);
         }
@@ -444,12 +446,12 @@
         function initializeDefaultStations() {
             // Estaciones de producción musical con diferente software
             return [
-                { id: 1, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Ableton Live Suite & Push 3' },
-                { id: 2, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Logic Pro X & Universal Audio' },
-                { id: 3, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'FL Studio Producer & Teclado MIDI' },
-                { id: 4, status: 'Reserved', sessionUser: 'Ana P.', timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Pro Tools Ultimate & Monitores ADAM' },
-                { id: 5, status: 'Maintenance', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Studio One & Sintetizador Analógico' },
-                { id: 6, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, ratePerHour: RATE_PER_HOUR, softwareSuite: 'Cubase Pro & Interfaz Focusrite' },
+                { id: 1, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, hourlyRate: HOURLY_RATE, softwareSuite: 'Ableton Live Suite & Push 3' },
+                { id: 2, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, hourlyRate: HOURLY_RATE, softwareSuite: 'Logic Pro X & Universal Audio' },
+                { id: 3, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, hourlyRate: HOURLY_RATE, softwareSuite: 'FL Studio Producer & Teclado MIDI' },
+                { id: 4, status: 'Reserved', sessionUser: 'Ana P.', timeStart: null, timeElapsed: 0, hourlyRate: HOURLY_RATE, softwareSuite: 'Pro Tools Ultimate & Monitores ADAM' },
+                { id: 5, status: 'Maintenance', sessionUser: null, timeStart: null, timeElapsed: 0, hourlyRate: HOURLY_RATE, softwareSuite: 'Studio One & Sintetizador Analógico' },
+                { id: 6, status: 'Available', sessionUser: null, timeStart: null, timeElapsed: 0, hourlyRate: HOURLY_RATE, softwareSuite: 'Cubase Pro & Interfaz Focusrite' },
             ];
         }
 
@@ -560,4 +562,5 @@
     </script>
 </body>
 </html>
+
 
