@@ -168,7 +168,7 @@
          * @returns {string} Costo total formateado.
          */
         function calculateCost(totalSeconds) {
-            const cost = (totalSeconds / 3600) * RATE_PER_HOUR;
+            const cost = (totalSeconds / 10) * RATE_PER_HOUR;
             return cost.toFixed(2);
         }
 
@@ -558,4 +558,5 @@
         window.onload = initializeAppAndAuth;
     </script>
 </body>
+
 </html>
