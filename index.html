@@ -9,28 +9,28 @@
     <!-- Carga de Font Awesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Estilos personalizados para un ambiente de estudio oscuro */
+        /* Estilos personalizados para un ambiente de estudio claro y moderno (Light Mode) */
         :root {
-            --primary: #1e1e1e;
-            --secondary: #2a2a2a;
-            --accent: #9333ea; /* Púrpura */
-            --text-light: #f3f4f6;
-            --status-available: #22c55e;
-            --status-in-use: #f97316;
-            --status-reserved: #0ea5e9;
-            --status-maintenance: #ef4444;
+            --primary: #f9fafb; /* Fondo muy claro */
+            --secondary: #ffffff; /* Fondo de tarjeta blanco */
+            --accent: #7c3aed; /* Púrpura más vibrante */
+            --text-dark: #1f2937; /* Texto principal oscuro */
+            --status-available: #10b981; /* Verde */
+            --status-in-use: #f59e0b; /* Amarillo/Naranja */
+            --status-reserved: #3b82f6; /* Azul */
+            --status-maintenance: #ef4444; /* Rojo */
         }
 
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--primary);
-            color: var(--text-light);
+            color: var(--text-dark);
             min-height: 100vh;
         }
 
         .card {
             background-color: var(--secondary);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.1);
             transition: transform 0.2s, box-shadow 0.2s;
         }
         .card:hover {
@@ -54,35 +54,35 @@
             border-radius: 0.5rem;
             font-weight: 600;
             transition: background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .btn-primary { background-color: var(--accent); color: white; }
-        .btn-primary:hover { background-color: #7e22ce; }
+        .btn-primary:hover { background-color: #6d28d9; }
         .btn-danger { background-color: var(--status-maintenance); color: white; }
-        .btn-danger:hover { background-color: #c02929; }
-        .btn-secondary { background-color: #4b5563; color: white; }
-        .btn-secondary:hover { background-color: #374151; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-secondary { background-color: #e5e7eb; color: var(--text-dark); }
+        .btn-secondary:hover { background-color: #d1d5db; }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <!-- Modal de Alerta/Confirmación Personalizado -->
     <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center">
-        <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-sm transform transition-all scale-100 duration-300">
-            <h3 id="modal-title" class="text-xl font-bold mb-4 text-white">Título</h3>
-            <p id="modal-message" class="text-gray-300 mb-6">Mensaje</p>
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm transform transition-all scale-100 duration-300">
+            <h3 id="modal-title" class="text-xl font-bold mb-4 text-gray-900">Título</h3>
+            <p id="modal-message" class="text-gray-700 mb-6">Mensaje</p>
             <div id="modal-actions" class="flex justify-end space-x-3">
                 <!-- Botones se inyectarán aquí -->
             </div>
         </div>
     </div>
 
-    <header class="mb-8 border-b border-gray-700 pb-4">
-        <h1 class="text-3xl md:text-4xl font-extrabold text-white flex items-center">
-            <i class="fas fa-headphones-alt text-purple-400 mr-3"></i>
+    <header class="mb-8 border-b border-gray-200 pb-4">
+        <h1 class="text-3xl md:text-4xl font-extrabold flex items-center text-gray-900">
+            <i class="fas fa-headphones-alt text-purple-600 mr-3"></i>
             Panel de Gestión - Cyber-Studio
         </h1>
-        <p class="text-gray-400 mt-1">Simulador de tiempo y estado para estaciones de producción musical (Tarifa: 10 MXN/hora, cobro por segundo).</p>
+        <p class="text-gray-600 mt-1">Simulador de tiempo y estado para estaciones de producción musical (Tarifa: 10 MXN/hora, **cobro por segundo con decimales**).</p>
         <div id="auth-status" class="text-xs mt-2 text-gray-500">
             <!-- El estado de autenticación se inyectará aquí -->
         </div>
@@ -164,16 +164,15 @@
         }
 
         /**
-         * Calcula el costo total basado en el tiempo transcurrido, redondeado a pesos enteros.
-         * La fórmula ya calcula la tarifa por segundo: (MXN por hora / 3600 segundos) * tiempo transcurrido.
+         * Calcula el costo total basado en el tiempo transcurrido, mostrando dos decimales.
          * @param {number} totalSeconds Tiempo total en segundos.
-         * @returns {string} Costo total formateado sin decimales (siempre redondeado a la baja).
+         * @returns {string} Costo total formateado con dos decimales.
          */
         function calculateCost(totalSeconds) {
-            // Costo total exacto (incluyendo decimales)
+            // Costo total exacto: (MXN por hora / 3600 segundos) * tiempo transcurrido
             const cost = (totalSeconds / 3600) * RATE_PER_HOUR;
-            // Redondear a la baja para obtener el peso entero (sin decimales)
-            return Math.floor(cost).toString();
+            // Usar toFixed(2) para garantizar dos decimales
+            return cost.toFixed(0.50);
         }
 
         /**
@@ -211,13 +210,13 @@
 
                 if (isInUse) {
                     sessionDetails = `
-                        <p class="text-sm text-gray-400 truncate">
-                            <i class="fas fa-user mr-1"></i> Cliente: <span class="text-white font-medium">${station.sessionUser}</span>
+                        <p class="text-sm text-gray-500 truncate">
+                            <i class="fas fa-user mr-1"></i> Cliente: <span class="text-gray-800 font-medium">${station.sessionUser}</span>
                         </p>
-                        <p class="text-sm text-gray-400 mt-1">
-                            <i class="fas fa-clock mr-1"></i> Tiempo: <span id="time-${station.id}" class="text-white font-mono">${formatTime(station.timeElapsed)}</span>
+                        <p class="text-sm text-gray-500 mt-1">
+                            <i class="fas fa-clock mr-1"></i> Tiempo: <span id="time-${station.id}" class="text-gray-800 font-mono">${formatTime(station.timeElapsed)}</span>
                         </p>
-                        <p class="text-xl font-bold mt-2 text-purple-400">
+                        <p class="text-xl font-bold mt-2 text-purple-600">
                             ${CURRENCY_SYMBOL}<span id="cost-${station.id}">${calculateCost(station.timeElapsed)}</span>
                         </p>
                     `;
@@ -253,7 +252,7 @@
                 }
 
                 const maintenanceButton = isAvailable || station.status === 'Reserved' ? `
-                    <button onclick="toggleStatus(${station.id}, 'Maintenance')" class="text-gray-500 hover:text-red-500 transition-colors absolute top-4 right-4 text-lg" title="Poner en Mantenimiento">
+                    <button onclick="toggleStatus(${station.id}, 'Maintenance')" class="text-gray-400 hover:text-red-500 transition-colors absolute top-4 right-4 text-lg" title="Poner en Mantenimiento">
                         <i class="fas fa-tools"></i>
                     </button>
                 ` : '';
@@ -261,20 +260,20 @@
                 return `
                     <div id="station-${station.id}" class="card p-5 rounded-xl shadow-lg relative">
                         ${maintenanceButton}
-                        <h2 class="text-2xl font-bold mb-2 text-white flex items-center">
-                            <i class="fas fa-desktop text-purple-400 mr-2"></i> Estación ${station.id}
+                        <h2 class="text-2xl font-bold mb-2 text-gray-900 flex items-center">
+                            <i class="fas fa-desktop text-purple-600 mr-2"></i> Estación ${station.id}
                         </h2>
                         <div class="flex items-center space-x-2 mb-4">
                             <span class="${statusInfo.class} status-dot"></span>
-                            <span class="text-sm font-semibold text-gray-300">${statusInfo.text}</span>
+                            <span class="text-sm font-semibold text-gray-600">${statusInfo.text}</span>
                         </div>
                         
-                        <p class="text-sm text-gray-500 border-t border-gray-700 pt-3">Software:</p>
-                        <p class="text-md font-medium text-purple-300 mb-3">${station.softwareSuite}</p>
+                        <p class="text-sm text-gray-500 border-t border-gray-200 pt-3">Software:</p>
+                        <p class="text-md font-medium text-purple-500 mb-3">${station.softwareSuite}</p>
                         
                         ${sessionDetails}
 
-                        <div class="pt-4 border-t border-gray-700 mt-4">
+                        <div class="pt-4 border-t border-gray-200 mt-4">
                             ${actionsHtml}
                         </div>
                     </div>
@@ -533,7 +532,7 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-                        document.getElementById('auth-status').innerHTML = `<i class="fas fa-lock text-green-500 mr-1"></i> Autenticado. ID de Usuario: <span class="text-white">${userId}</span> | App ID: <span class="text-white">${appId}</span>`;
+                        document.getElementById('auth-status').innerHTML = `<i class="fas fa-lock text-green-500 mr-1"></i> Autenticado. ID de Usuario: <span class="text-gray-800">${userId}</span> | App ID: <span class="text-gray-800">${appId}</span>`;
                         subscribeToStations();
                     } else {
                         // Intentar autenticación (si falla o si el token es nulo)
@@ -561,6 +560,3 @@
     </script>
 </body>
 </html>
-
-
-
