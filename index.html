@@ -170,9 +170,9 @@
          */
         function calculateCost(totalSeconds) {
             // Costo total exacto: (MXN por hora / 3600 segundos) * tiempo transcurrido
-            const cost = (totalSeconds / 3600) * RATE_PER_HOUR;
+            const cost = (totalSeconds / 1) * RATE_PER_HOUR;
             // Usar toFixed(2) para garantizar dos decimales
-            return cost.toFixed(0.50);
+            return cost.toFixed(2);
         }
 
         /**
@@ -560,3 +560,4 @@
     </script>
 </body>
 </html>
+
